@@ -1,0 +1,5 @@
+# Usage: QC.sh BfileName Referencefolder Workingdirectory casecontrol
+# 1. Bfile name -> $file
+# 2. Copy all scripts to the working folder -> $workdirectry
+# 3. Define reference folder -> Referencefolder
+# 4. If cases and controls are merged and needs to be seperated at first ->$casecontrol=1
