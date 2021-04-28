@@ -208,3 +208,40 @@ alchol_freq[alchol_freq$freq==4,4]<-0
 alchol_freq[alchol_freq$freq==5,4]<-0
 alchol_freq[alchol_freq$freq==6,4]<-0
 fwrite(alchol_freq,"1558_Alchol_QC2.ukb")
+
+
+#ICD code for diagnose
+# SLE
+SLE<-apply(icd10, 1, function(r) any(r %like% c("M32")))
+test$SLE<-0
+test$SLE[SLE]<-1
+
+#CKD
+CKD<-apply(icd10, 1, function(r) any(r %like% c("N183", "N184","N185")))
+test$CKD<-0
+test$CKD[CKD]<-1
+
+#MIG
+MIG<-apply(icd10, 1, function(r) any(r %like% c("G43", "G440")))
+test$MIG<-0
+test$MIG[MIG]<-1
+
+#SMI
+SMI<-apply(icd10, 1, function(r) any(r %like% c("F20", "F21","F22","F23","F24","F25","F26","F27","F28","F29","F31")))
+test$SMI<-0
+test$SMI[SMI]<-1
+
+#ED N48.4, F52.2 (-I27.0, I27.2)
+ED<-apply(icd10, 1, function(r) any(r %like% c("N484", "G522")))
+test$ED<-0
+test$ED[ED]<-1
+
+#HIV
+HIV<-apply(icd10, 1, function(r) any(r %like% c("B20", "B21","B22","B23","B24")))
+test$HIV<-0
+test$HIV[HIV]<-1
+
+t2<-test[match(Fabian$sample,test$f.eid),]
+t1<-test[is.na(test$bpm)==TRUE & is.na(test$bmp2)==TRUE,]
+test$bmpa<-rowSums(cbind(test$bpm,test$bmp2),na.rm = TRUE)
+test$bmpa[test$sample %in% t1$sample]<-NA
