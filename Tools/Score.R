@@ -280,11 +280,14 @@ for (i in 1:nrow(temp)){
 #4 moderate smoker (10 to 19)
 #5 heavy smoker (20 or over)
 library(QRISK3)
-test<-Fabian %>% select("age","sex","AF","atypical","corticosteroids","ED","MIG","RA","CKD","SMI","SLE","bpm","dia1","dia2","weight","height","ethic","familyHeart","chol_hdl","sbp","stdsbp","smoking","Townsend","BMI","sample")
+test<-Fabian %>% select("age","sex","AF","atypical","corticosteroids","ED","MIG","RA","CKD","SMI","SLE","bmpa","dia1","dia2","weight","height","ethic","familyHeart","chol_hdl","sbp","stdsbp","smoking","Townsend","BMI","sample")
 test<-test[complete.cases(test), ]
 test<-test[test$age>=25 & test$age<=84,]
-test<-test[test$chol_hdl<=11,]
-test_all_rst <- QRISK3_2017(data=test_all, patid="sample", gender="sex", age="age",atrial_fibrillation="AF", atypical_antipsy="atypical",regular_steroid_tablets="corticosteroids", erectile_disfunction="ED",migraine="MIG", rheumatoid_arthritis="RA",chronic_kidney_disease="CKD", severe_mental_illness="SMI",systemic_lupus_erythematosis="SLE",blood_pressure_treatment="bpm", diabetes1="dia1",diabetes2="dia2", weight="weight", height="height",ethiniciy="ethic", heart_attack_relative="familyHeart",cholesterol_HDL_ratio="HDL", systolic_blood_pressure="sbp",std_systolic_blood_pressure="stdsbp", smoke="smoking",townsend="Townsend")
+#test<-test[test$chol_hdl<=11,]
+test_all_rst <- QRISK3_2017(data=test_all, patid="sample", gender="sex", age="age",atrial_fibrillation="AF", atypical_antipsy="atypical",regular_steroid_tablets="corticosteroids", erectile_disfunction="ED",migraine="MIG", rheumatoid_arthritis="RA",chronic_kidney_disease="CKD", severe_mental_illness="SMI",systemic_lupus_erythematosis="SLE",blood_pressure_treatment="bpm", diabetes1="dia1",diabetes2="dia2", weight="weight", height="height",ethiniciy="ethic", heart_attack_relative="familyHeart",cholesterol_HDL_ratio="chol_hdl", systolic_blood_pressure="sbp",std_systolic_blood_pressure="stdsbp", smoke="smoking",townsend="Townsend")
+
+#bloodtreatment medicine ->new
+#tset01<-subset(test0, !(ID %in% test$sample))
 
 test_all <- QRISK3_2019_test
 test_all<-test_all[,-24]
