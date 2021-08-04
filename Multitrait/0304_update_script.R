@@ -55,6 +55,15 @@ cadmeta$BETA<-log(cadmeta$OR)
 ismeta$BETA<-log(ismeta$OR)
 padmeta$BETA<-log(padmeta$OR)
 
+#manhattanplot
+cadm<-cadmeta[cadmeta$qvalue<0.05,]
+ism<-ismeta[ismeta$qvalue<0.05,]
+padm<-padmeta[padmeta$qvalue<0.05,]
+fwrite(cadm,"CAD_FDR_GRCh37_500kb")
+fwrite(ism,"IS_FDR_GRCh37_500kb")
+fwrite(padm,"PAD_FDR_GRCh37_500kb")
+
+
 # Generate RMS method
 region<-read.table("GRCh37_500kb",header=TRUE,as.is=TRUE)
 #region<-read.table("fourier_region",header=TRUE,as.is=TRUE)
