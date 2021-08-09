@@ -1098,15 +1098,32 @@ fite<-function(x,y){
   return(bar2)
 }
 
-plot_diff_prev4<-function(dn,trait,pheno1,pheno2,figure,quant1,quant2,number){
+plot_diff_prev6<-function(dn,trait,pheno1,pheno2,figure,quant1,quant2,number){
   dn$numAllele2<-dn$numAllele^2
   d1<-dn[dn$group==pheno1,]
   d2<-dn[dn$group==pheno2,]
   d1$colors<-"#33A2C9"
   d2$colors<-"#CD375D"
+  dn$p_se<- sqrt(d1$p*(1-d1$p)/d1$N + d2$p*(1-d2$p)/d2$N)
+  d1<-dn[dn$group==pheno1,]
+  d2<-dn[dn$group==pheno2,]
   bar<-as.data.frame(rbind(mean(d1$p)*100,mean(d2$p)*100))
   bar$pheno<-factor(c(pheno1,pheno2),levels=c(pheno1,pheno2))
   smot<-matrix(c(pheno1,"Low risk",min(d1$p),pheno2,"Low risk",min(d2$p),pheno1,"Medium risk",mean(d1$p[2:9]),pheno2,"Medium risk",mean(d2$p[2:9]),pheno1,"High risk",max(d1$p),pheno2,"High risk",max(d2$p)),ncol=3,byrow=TRUE)
+  
+  modelLog11 <- glm(p~numAllele,data=d1,family = binomial(link="logit"),weights=N)
+  predLog11     <- predict(modelLog11,type="response")
+  Rlog11        <- round(unlist(cor.test(d1$p,predLog11)[c("estimate","conf.int")]),2)
+  modelLog21 <- glm(p~numAllele,data=d2,family = binomial(link="logit"),weights=N)
+  predLog21     <- predict(modelLog21,type="response")
+  Rlog21        <- round(unlist(cor.test(d2$p,predLog21)[c("estimate","conf.int")]),2)
+  d1$predLog<-predLog11
+  d2$predLog<-predLog21
+  dn<-rbind(d1,d2)
+  pol<-data.frame(x=c(quant1,quant1,quant2,quant2),y=c(min(dn$p),max(dn$p),max(dn$p),min(dn$p)))
+  cols <- c(pheno1="#33A2C9",pheno2="#CD375D","Difference in prevalence (%)"="#cccccc")
+  names(cols)[1:2]<-c(pheno1,pheno2)
+  p0<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=dn,aes(x=numAllele,y=p,color=group),pch=19)+geom_line(data=dn,aes(x=numAllele,y=predLog,group=group,color=group),size=1.5)+theme_classic()+ylab(paste(trait," prevalence (%)",sep=""))+geom_errorbar(data=dn,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se,color=group), size=0.3,width=0.1)+xlab("wGRS")+ theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=13),plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm"),text = element_text(size=18))+ scale_color_manual(values=cols[1:2],breaks = names(cols[1:2]),labels=c(paste0(pheno1,": Logit: R=",Rlog11[1]," (95%CI: [",Rlog11[2],"-",Rlog11[3],"])"),paste0(pheno2,": Logit: R=",Rlog21[1]," (95%CI: [",Rlog21[2],"-",Rlog21[3],"])")))+guides(color=guide_legend(nrow=2))
   
   d1$p2<-d1$p-mean(d1$p)
   d2$p2<-d2$p-mean(d2$p)
@@ -1115,31 +1132,33 @@ plot_diff_prev4<-function(dn,trait,pheno1,pheno2,figure,quant1,quant2,number){
   d$p_se<- (sqrt(d1$p*(1-d1$p)/d1$N + d2$p*(1-d2$p)/d2$N))*100
   d1<-d[d$group==pheno1,]
   d2<-d[d$group==pheno2,]
-  p.values <- fisher.test(fite(bar[1,1],bar[2,1]))$p.value
-  labels <- symnum(p.values, corr = FALSE, cutpoints = c(0,  .001,.01,.05, 1), symbols = c("***","**","*","."))
+  #p.values <- fisher.test(fite(bar[1,1],bar[2,1]))$p.value
+  p.values <- fisher.test(data.frame("V1"=c(sum(d1$n),(sum(d1$N)-sum(d1$n))),"V2"=c(sum(d2$n),(sum(d2$N)-sum(d2$n)))))$p.value
+  labels <- symnum(p.values, corr = FALSE, cutpoints = c(0,  .001,.01,.05, 1), symbols = c("***","**","*","p=NS"))
   # bar plot 1
-  p1<-ggplot(data=bar, aes(x=pheno, y=V1,fill=pheno))+geom_bar(stat="identity")+
-    theme_classic()+ylab(paste("Mean ",trait," prevalence (%)",sep=""))+ theme(legend.position="none",plot.margin=unit(c(0.5,0,0.5,0.5),"cm"),text = element_text(size=18))+scale_fill_manual(values=c("#33A2C9","#CD375D"))+geom_signif(comparisons = list(c(pheno1,pheno2)), annotations =labels,textsize = 10)+ylim(0,number)
-  #+geom_text(x=pheno1, y=max(bar$V1), label=fisher.test(fite(bar[1,1],bar[2,1]))$p.value)
+  #p1<-ggplot(data=bar, aes(x=pheno, y=V1,fill=pheno))+geom_bar(stat="identity")+theme_classic()+ylab(paste("Mean ",trait," prevalence (%)",sep=""))+ theme(legend.position="none",plot.margin=unit(c(0.5,0,0.5,0.5),"cm"),text = element_text(size=18))+scale_fill_manual(values=c("#33A2C9","#CD375D"))+geom_signif(comparisons = list(c(pheno1,pheno2)), annotations =labels,textsize = 10,vjust=0.2)+ylim(0,number)+geom_text(x=pheno1, y=max(bar$V1), label=fisher.test(fite(bar[1,1],bar[2,1]))$p.value)
+  p1<-ggplot(data=bar, aes(x=pheno, y=V1,fill=pheno))+geom_bar(stat="identity",colour="black")+
+    theme_classic()+ylab(paste(trait," prevalence (%)",sep=""))+ theme(legend.position="none",plot.margin=unit(c(0.5,0,0.5,3),"cm"),text = element_text(size=18))+scale_fill_manual(values=c("#33A2C9","#CD375D"))+geom_signif(y_position = max(bar$V1)+0.5,xmin=0.955,xmax=1.975,annotations =labels,textsize = 10,vjust=0.2)+ylim(0,number)
   # bar plot 2
   smot<-as.data.frame(smot)
   smot<-unfactor(smot)
   smot$V2 <- factor(smot$V2, levels = c("Low risk","Medium risk","High risk"))
   smot$V1 <- factor(smot$V1, levels = c(pheno1,pheno2))
-  smot$V3<-smot$V3*100
+  smot$V3<-as.numeric(smot$V3)*100
   diff_df = smot %>%
     group_by(V2) %>%
     spread(V1, V3) %>%
     mutate(diff = !!as.name(pheno2) - !!as.name(pheno1),
            max_y = max(!!as.name(pheno2), !!as.name(pheno1)))
   diff_df$diff<-round(diff_df$diff,digits = 2)
-  p.values <- c(fisher.test(fite(smot[1,3],smot[2,3]))$p.value,fisher.test(fite(smot[3,3],smot[4,3]))$p.value,fisher.test(fite(smot[5,3],smot[6,3]))$p.value)
-  labels <- symnum(p.values, corr = FALSE, cutpoints = c(0,  .001,.01,.05, 1), symbols = c("***","**","*","."))
-  y.values <- sapply(split(smot, smot$V2), function(x){max(sapply(split(x, x$V1), function(xx){boxplot(x$V3, plot=F)$stats[5, ]}))})+2
-  sigpos=data.frame(x=c(0.875, 1.875,2.875), xend=c(1.125, 2.125,3.125),y=y.values, annotation=labels)
+  p.values <- c(fisher.test(data.frame("V1"=c(sum(d1$n[1]),(sum(d1$N[1])-sum(d1$n[1]))),"V2"=c(sum(d2$n[1]),(sum(d2$N[1])-sum(d2$n[1])))))$p.value,fisher.test(data.frame("V1"=c(sum(d1$n[2:9]),(sum(d1$N[2:9])-sum(d1$n[2:9]))),"V2"=c(sum(d2$n[2:9]),(sum(d2$N[2:9])-sum(d2$n[2:9])))))$p.value,fisher.test(data.frame("V1"=c(sum(d1$n[10]),(sum(d1$N[10])-sum(d1$n[10]))),"V2"=c(sum(d2$n[10]),(sum(d2$N[10])-sum(d2$n[10])))))$p.value)
+  #p.values <- fisher.test(data.frame("V1"=c(sum(d1$n),(sum(d1$N)-sum(d1$n))),"V2"=c(sum(d2$n),(sum(d2$N)-sum(d2$n)))))$p.value
+  labels <- symnum(p.values, corr = FALSE, cutpoints = c(0,  .001,.01,.05, 1), symbols = c("***","**","*","p=NS"))
+  y.values <- sapply(split(smot, smot$V2), function(x){max(sapply(split(x, x$V1), function(xx){boxplot(x$V3, plot=F)$stats[5, ]}))})+1.5
+  sigpos=data.frame(x=c(0.775, 1.775,2.775), xend=c(1.225, 2.225,3.225),y=y.values, annotation=labels)
   cols <- c(pheno1="#33A2C9",pheno2="#CD375D","Difference in prevalence (%)"="#cccccc")
   names(cols)[1:2]<-c(pheno1,pheno2)
-  p2<-ggplot(smot,aes(V2,V3))+geom_bar(aes(y = max_y, fill = "Difference in prevalence (%)"), data = diff_df, stat = "identity", width = 0.4)+geom_bar(aes(fill=V1),stat="identity",colour="black",position="dodge")+geom_text(aes(label = diff, y = max_y), vjust=-0.5, data = diff_df,hjust = 1, colour = scales::muted("red")) +theme_classic()+xlab("GRS categories")+ylab(paste(trait," prevalence (%)",sep=""))+theme(legend.title = element_blank(),legend.position = "top",plot.margin=unit(c(0.5,1,0.5,1.5),"cm"),text = element_text(size=18),legend.text=element_text(size=14))+scale_fill_manual(values=cols)+ scale_y_continuous(breaks = seq(0, number, by = 5))+geom_signif(y_position = y.values-0.1,xmin=sigpos$x,xmax=sigpos$xend,annotations = sigpos$annotation,textsize=10,vjust=0.5) 
+  p2<-ggplot(smot,aes(V2,V3))+geom_bar(aes(y = max_y, fill = "Difference in prevalence (%)"), data = diff_df, stat = "identity", width = 0.4)+geom_bar(aes(fill=V1),stat="identity",colour="black",position="dodge")+geom_text(aes(label = diff, y = max_y), vjust=-0.5, data = diff_df,hjust = 1, colour = scales::muted("red")) +theme_classic()+xlab("wGRS")+ylab(paste(trait," prevalence (%)",sep=""))+theme(legend.title = element_blank(),legend.position = c(0.1,1),plot.margin=unit(c(0,7,0.5,1.5),"cm"),legend.direction = "horizontal",text = element_text(size=18),legend.text=element_text(size=14))+scale_fill_manual(values=cols,breaks = names(cols))+ scale_y_continuous(breaks = seq(0, number, by = 5))+geom_signif(y_position = y.values,xmin=sigpos$x,xmax=sigpos$xend,annotations = sigpos$annotation,textsize=10,vjust=0.2) 
   # top, right, bottom, and left margin 1,2,0.5,2
   # par bottom, left, top, right
   
@@ -1159,7 +1178,7 @@ plot_diff_prev4<-function(dn,trait,pheno1,pheno2,figure,quant1,quant2,number){
   d2$predLin<-predLin22
   d<-rbind(d1,d2)
   pol<-data.frame(x=c(quant1,quant1,quant2,quant2),y=c(min(d$p),max(d$p),max(d$p),min(d$p)))
-  p3<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=d,aes(x=numAllele,y=p,color=group),pch=19)+geom_line(data=d,aes(x=numAllele,y=predLin,group=group,color=group),size=1.5)+theme_classic()+ylab("Difference prevalence (%) in each decile compared\n to the average prevalence in CAD")+geom_errorbar(data=d,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se,color=group), size=0.3,width=1)+xlab("Mean number of risk alleles")+ theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=14),plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm"),text = element_text(size=18))+ scale_color_manual(values=c("#CD375D","#33A2C9"),labels=c(paste(pheno1,": Quadratic: R=",Rlin12[1]," (95%CI: [",Rlin12[2],"-",Rlin12[3],"])"),paste(pheno2,": Quadratic: R=",Rlin22[1]," (95%CI: [",Rlin22[2],"-",Rlin22[3],"])")))+guides(color=guide_legend(nrow=2))
+  p3<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=d,aes(x=numAllele,y=p,color=group),pch=19)+geom_line(data=d,aes(x=numAllele,y=predLin,group=group,color=group),size=1.5)+theme_classic()+ylab(paste("Difference prevalence (%) in each decile compared\n to the average ",trait," prevalence of respective group ",sep=""))+geom_errorbar(data=d,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se,color=group), size=0.3,width=0.1)+xlab("wGRS")+ theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=13),plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm"),text = element_text(size=18))+ scale_color_manual(values=cols[1:2],breaks = names(cols[1:2]),labels=c(paste0(pheno1,": Quadratic: R=",Rlin12[1]," (95%CI: [",Rlin12[2],"-",Rlin12[3],"])"),paste0(pheno2,": Quadratic: R=",Rlin22[1]," (95%CI: [",Rlin22[2],"-",Rlin22[3],"])")))+guides(color=guide_legend(nrow=2))
   
   d1<-dn[dn$group==pheno1,]
   d2<-dn[dn$group==pheno2,]
@@ -1173,100 +1192,14 @@ plot_diff_prev4<-function(dn,trait,pheno1,pheno2,figure,quant1,quant2,number){
   Rlin2        <- round(unlist(cor.test(d$p,predLin2)[c("estimate","conf.int")]),2)
   d$predLin<-predLin2
   pol<-data.frame(x=c(quant1,quant1,quant2,quant2),y=c(min(d$p),max(d$p),max(d$p),min(d$p)))
-  p4<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=d,aes(x=numAllele,y=p),pch=19)+geom_line(data=d,aes(x=numAllele,y=predLin,color=group),size=1.5)+theme_classic()+ylab(paste("Difference prevalence (%) between\n",pheno1," and ",pheno2," in CAD",sep=""))+geom_errorbar(data=d,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se), size=0.3,width=1)+xlab("Mean number of risk alleles")+ scale_color_manual(values="coral",labels=c(paste0("Quadratic: R=",Rlin2[1]," (95%CI: [",Rlin2[2],"-",Rlin2[3],"])")))+theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=16),plot.margin=unit(c(0.5,1,0.5,0.5),"cm"),text = element_text(size=18))+scale_y_continuous(position = "right",limits=c(min(d$p-d$p_se),max(d$p+d$p_se)))+xlim(c(min(d$numAllele-sd(d$numAllele)),max(d$numAllele+sd(d$numAllele))))
-  myplot1 <- arrangeGrob(p1, top = textGrob("A", x = unit(0, "npc"), y   = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black", fontsize=18)))
-  myplot2 <- arrangeGrob(p2, top = textGrob("B", x = unit(0, "npc"), y = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black", fontsize=18)))
-  myplot3 <- arrangeGrob(p3, top = textGrob("C", x = unit(0, "npc"), y  = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black", fontsize=18)))
-  myplot4 <- arrangeGrob(p4, top = textGrob("D", x = unit(0, "npc"), y = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black",  fontsize=18)))
-  cairo_pdf(paste(figure,"_T.pdf",sep=""),width=11.29,height=14.57)
-  grid.arrange(arrangeGrob(myplot1,myplot2, ncol=2, nrow=1,widths=c(1,3)),arrangeGrob(myplot3,myplot4, ncol=2, nrow=1),nrow=2)
-  dev.off()
-}
-
-plot_diff_prev5<-function(dn,trait,pheno1,pheno2,pheno3,figure,quant1,quant2,number){
-  dn$numAllele2<-dn$numAllele^2
-  d1<-dn[dn$group==pheno1,]
-  d2<-dn[dn$group==pheno2,]
-  d3<-dn[dn$group==pheno3,]
-  d1$colors<-"#33A2C9"
-  d2$colors<-"#CD375D"
-  d3$colors<-"#EEB422" #yellow
-  bar<-as.data.frame(rbind(mean(d1$p)*100,mean(d2$p)*100,mean(d3$p)*100))
-  bar$pheno<-factor(c(pheno1,pheno2,pheno3),levels=c(pheno1,pheno2,pheno3))
-  smot<-matrix(c(pheno1,"Low risk",min(d1$p),pheno2,"Low risk",min(d2$p),pheno3,"Low risk",min(d3$p),pheno1,"Medium risk",mean(d1$p[2:9]),pheno2,"Medium risk",mean(d2$p[2:9]),pheno3,"Medium risk",mean(d3$p[2:9]),pheno1,"High risk",max(d1$p),pheno2,"High risk",max(d2$p),pheno3,"High risk",max(d3$p)),ncol=3,byrow=TRUE)
-  d1$p2<-d1$p-mean(d1$p)
-  d2$p2<-d2$p-mean(d2$p)
-  d3$p2<-d3$p-mean(d3$p)
-  d<-rbind(d1,d2,d3)
-  d$p<-d$p2*100
-  d$p_se<- (sqrt(d1$p*(1-d1$p)/d1$N + d2$p*(1-d2$p)/d2$N))*100
-  d1<-d[d$group==pheno1,]
-  d2<-d[d$group==pheno2,]
-  d3<-d[d$group==pheno3,]
-  p.values <- fisher.test(fite(bar[1,1],bar[3,1]))$p.value
-  labels <- symnum(p.values, corr = FALSE, cutpoints = c(0,  .001,.01,.05, 1), symbols = c("***","**","*","p>0.05"))
-  # bar plot 1
-  p1<-ggplot(data=bar, aes(x=pheno, y=V1,fill=pheno))+geom_bar(stat="identity")+
-    theme_classic()+ylab(paste("Mean ",trait," prevalence (%)",sep=""))+ theme(legend.position="none",plot.margin=unit(c(0.5,0,0.5,0.5),"cm"),text = element_text(size=18))+scale_fill_manual(values=c("#33A2C9","#CD375D","#EEB422"))+geom_signif(comparisons = list(c(pheno1,pheno3)), annotations =labels,textsize = 10)+ylim(0,number)
-  #+geom_text(x=pheno1, y=max(bar$V1), label=fisher.test(fite(bar[1,1],bar[2,1]))$p.value)
-  # bar plot 2
-  smot<-as.data.frame(smot)
-  smot<-unfactor(smot)
-  smot$V2 <- factor(smot$V2, levels = c("Low risk","Medium risk","High risk"))
-  smot$V1 <- factor(smot$V1, levels = c(pheno1,pheno2,pheno3))
-  smot$V3<-smot$V3*100
-  diff_df = smot %>%
-    group_by(V2) %>%
-    spread(V1, V3) %>%
-    mutate(diff = !!as.name(pheno3) - !!as.name(pheno1),
-           max_y = max(!!as.name(pheno3), !!as.name(pheno1)))
-  diff_df$diff<-round(diff_df$diff,digits = 2)
-  p.values <- c(fisher.test(fite(smot[1,3],smot[3,3]))$p.value,fisher.test(fite(smot[4,3],smot[6,3]))$p.value,fisher.test(fite(smot[7,3],smot[9,3]))$p.value)
-  labels <- symnum(p.values, corr = FALSE, cutpoints = c(0,  .001,.01,.05, 1), symbols = c("***","**","*","p>0.05"))
-  y.values <- sapply(split(smot, smot$V2), function(x){max(sapply(split(x, x$V1), function(xx){boxplot(x$V3, plot=F)$stats[5, ]}))})+2
-  sigpos=data.frame(x=c(0.625,1.625,2.625), xend=c(1.375,2.375,3.375),y=y.values, annotation=labels)
-  cols <- c(pheno1="#33A2C9",pheno2="#CD375D",pheno3="#EEB422","Difference in prevalence (%)"="#cccccc")
-  names(cols)[1:3]<-c(pheno1,pheno2,pheno3)
-  p2<-ggplot(smot,aes(V2,V3))+geom_bar(aes(y = max_y, fill = "Difference in prevalence (%)"), data = diff_df, stat = "identity", width = 0.4)+geom_bar(aes(fill=V1),stat="identity",colour="black",position="dodge")+geom_text(aes(label = diff, y = max_y), vjust=-0.5, data = diff_df,hjust = 1, colour = scales::muted("red")) +theme_classic()+xlab("GRS categories")+ylab(paste(trait," prevalence (%)",sep=""))+theme(legend.title = element_blank(),legend.position = c(0.5,1),legend.direction = "horizontal",plot.margin=unit(c(0,1,0.5,1.5),"cm"),text = element_text(size=18),legend.text=element_text(size=14))+scale_fill_manual(values=cols)+ scale_y_continuous(breaks = seq(0, number, by = 5))+geom_signif(y_position = y.values-0.1,xmin=sigpos$x,xmax=sigpos$xend,annotations = sigpos$annotation,textsize=10,vjust=1) 
-  # top, right, bottom, and left margin 1,2,0.5,2
-  # par bottom, left, top, right
-  
-  modelLinear12 <- lm(p~1+numAllele+numAllele2,data=d1,weights = 1/p_se)
-  predLin12     <- predict(modelLinear12,type="response")
-  Rlin12        <- round(unlist(cor.test(d1$p,predLin12)[c("estimate","conf.int")]),2)
-  modelLinear22 <- lm(p~1+numAllele+numAllele2,data=d2,weights = 1/p_se)
-  predLin22     <- predict(modelLinear22,type="response")
-  Rlin22        <- round(unlist(cor.test(d2$p,predLin22)[c("estimate","conf.int")]),2)
-  modelLinear32 <- lm(p~1+numAllele+numAllele2,data=d3,weights = 1/p_se)
-  predLin32     <- predict(modelLinear32,type="response")
-  Rlin32        <- round(unlist(cor.test(d3$p,predLin32)[c("estimate","conf.int")]),2)
-  d1$predLin<-predLin12
-  d2$predLin<-predLin22
-  d3$predLin<-predLin32
-  d<-rbind(d1,d2,d3)
-  pol<-data.frame(x=c(quant1,quant1,quant2,quant2),y=c(min(d$p),max(d$p),max(d$p),min(d$p)))
-  p3<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=d,aes(x=numAllele,y=p,color=group),pch=19)+geom_line(data=d,aes(x=numAllele,y=predLin,group=group,color=group),size=1.5)+theme_classic()+ylab("Difference prevalence (%) in each decile compared\n to the average prevalence in CAD")+geom_errorbar(data=d,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se,color=group), size=0.3,width=1)+xlab("Mean number of risk alleles")+ theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=14),plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm"),text = element_text(size=18))+ scale_color_manual(values=c("#33A2C9","#CD375D","#EEB422"),labels=c(paste(pheno1,": Quadratic: R=",Rlin12[1]," (95%CI: [",Rlin12[2],"-",Rlin12[3],"])"),paste0(pheno2,": Quadratic: R=",Rlin22[1]," (95%CI: [",Rlin22[2],"-",Rlin22[3],"])"),paste0(pheno3,": Quadratic: R=",Rlin32[1]," (95%CI: [",Rlin32[2],"-",Rlin32[3],"])")))+guides(color=guide_legend(nrow=2))
-  
-  d1<-dn[dn$group==pheno1,]
-  d2<-dn[dn$group==pheno2,]
-  d3<-dn[dn$group==pheno3,]
-  d<-d1
-  d$p<-(d3$p-d1$p)*100
-  d$N<-d1$N+d3$N
-  d$p_se<-(sqrt(d1$p*(1-d1$p)/d1$N + d3$p*(1-d3$p)/d3$N))*100
-  d$numAllele2<-d$numAllele^2
-  modelLinear2 <- lm(p~1+numAllele+numAllele2,data=d,weights = 1/p_se)
-  predLin2     <- predict(modelLinear2,type="response")
-  Rlin2        <- round(unlist(cor.test(d$p,predLin2)[c("estimate","conf.int")]),2)
-  d$predLin<-predLin2
-  pol<-data.frame(x=c(quant1,quant1,quant2,quant2),y=c(min(d$p),max(d$p),max(d$p),min(d$p)))
-  p4<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=d,aes(x=numAllele,y=p),pch=19)+geom_line(data=d,aes(x=numAllele,y=predLin,color=group),size=1.5)+theme_classic()+ylab(paste("Difference prevalence (%) between\n",pheno1," and ",pheno3," in CAD",sep=""))+geom_errorbar(data=d,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se), size=0.3,width=1)+xlab("Mean number of risk alleles")+ scale_color_manual(values="coral",labels=c(paste0("Quadratic: R=",Rlin2[1]," (95%CI: [",Rlin2[2],"-",Rlin2[3],"])")))+theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=16),plot.margin=unit(c(0.5,1,0.5,0.5),"cm"),text = element_text(size=18))+scale_y_continuous(position = "right",limits=c(min(d$p-d$p_se),max(d$p+d$p_se)))+xlim(c(min(d$numAllele-sd(d$numAllele)),max(d$numAllele+sd(d$numAllele))))
+  p4<-ggplot()+geom_polygon(data=pol, mapping=aes(x=x, y=y),fill="grey",alpha=0.4)+geom_point(data=d,aes(x=numAllele,y=p),pch=19)+geom_line(data=d,aes(x=numAllele,y=predLin,color=group),size=1.5)+theme_classic()+ylab(paste("Difference in ",trait, "prevalence (%) in each decile\n between subjects ",pheno1," and ",pheno2,sep=""))+geom_errorbar(data=d,aes(x=numAllele,ymin=p-p_se, ymax=p+p_se), size=0.3,width=0.1)+xlab("wGRS")+ scale_color_manual(values="coral",labels=c(paste0("Quadratic: R=",Rlin2[1]," (95%CI: [",Rlin2[2],"-",Rlin2[3],"])")))+theme(legend.title =element_blank(),legend.position="top",legend.text=element_text(size=16),plot.margin=unit(c(0.5,1,0.5,0.5),"cm"),text = element_text(size=18))+scale_y_continuous(position = "left",limits=c(min(d$p-d$p_se),max(d$p+d$p_se)))+xlim(c(min(d$numAllele-sd(d$numAllele)),max(d$numAllele+sd(d$numAllele))))
   myplot1 <- arrangeGrob(p1, top = textGrob("A", x = unit(0, "npc"), y   = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black", fontsize=18)))
   myplot2 <- arrangeGrob(p2, top = textGrob("B", x = unit(1, "npc"), y = unit(1, "npc"), just=c("right","top"),gp=gpar(col="black", fontsize=18)))
   myplot3 <- arrangeGrob(p3, top = textGrob("C", x = unit(0, "npc"), y  = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black", fontsize=18)))
-  myplot4 <- arrangeGrob(p4, top = textGrob("D", x = unit(0, "npc"), y = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black",  fontsize=18)))
-  cairo_pdf(paste(figure,"_T.pdf",sep=""),width=11.29,height=14.57)
-  grid.arrange(arrangeGrob(myplot1,myplot2, ncol=2, nrow=1,widths=c(1,3)),arrangeGrob(myplot3,myplot4, ncol=2, nrow=1),nrow=2)
+  myplot4 <- arrangeGrob(p0, top = textGrob("D", x = unit(0, "npc"), y = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black",  fontsize=18)))
+  myplot5 <- arrangeGrob(p4, top = textGrob("E", x = unit(0, "npc"), y = unit(1, "npc"), just=c("left","top"),gp=gpar(col="black",  fontsize=18)))
+  cairo_pdf(paste(figure,"_T.pdf",sep=""),width=17,height=16)
+  grid.arrange(arrangeGrob(myplot1,myplot2, ncol=2, nrow=1,widths=c(1,3)),arrangeGrob(myplot4,myplot3,myplot5, ncol=3, nrow=1),nrow=2)
   dev.off()
 }
 
