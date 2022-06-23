@@ -261,7 +261,29 @@ for (i in 1:nrow(temp)){
   temp$PCE[i]<-poolscore(temp,i)
 }
 
-
+pcr_probs <- with(
+  subset(Fabian,age>=40& chol>3.37 & chol<8.27 &sbp>=90 &sbp<=200),
+  predict_10yr_ascvd_risk(
+    sex = sex,
+    sex_levels = list(female = 1, male = 0),
+    race = ethic,
+    age_years = age,
+    chol_total_mgdl = chol*38.67, ##*38.67
+    chol_hdl_mgdl = HDL*38.67,
+    bp_sys_mmhg = sbp,
+    bp_meds = bpm,
+    smoke_current = smoking,
+    diabetes = dia,
+    race_levels = list(black = 6, white = 1),
+    smoke_current_levels = list(no =c(1,2), yes = 4),
+    bp_meds_levels = list(no = 0, yes = 1),
+    diabetes_levels = list(no = 0, yes =1)
+  )
+)
+temp<-subset(Fabian,age>=40& chol>3.37 & chol<8.27 &sbp>=90 &sbp<=200)
+temp$PCE<-pcr_probs
+##1 female 0 male
+##1 male 2 female
 
 #4.QRISK3
 #variable: age, sex, race, BMI, chol, hdl, SBP, BP treatment, DM, smoke, CPD, family, Townsend deprivation index, rheumatoid arthritis, atrial fibrillation, SBP variability, CKD stage, SLE, erectile dysfunction, migraine, severe mental illness, HIV/AIDS, Corticosteroids, Atyp. antypsychotics
