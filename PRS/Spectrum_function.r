@@ -1097,7 +1097,38 @@ fite<-function(x,y){
   bar2$V2<-100-bar$V1
   return(bar2)
 }
+dcn<-function(d1){
+  d1$uorder<-ntile(d1$NRA,10)
+  d1$CC<-as.numeric(d1$CC)
+  prev_p   <- aggregate(d1$CC,by=list(d1$uorder),FUN=mean,na.rm=T)
+  prev_n   <- aggregate(d1$CC,by=list(d1$uorder),FUN=sum,na.rm=T)
+  prev_N   <- aggregate(d1$CC,by=list(d1$uorder),FUN=function(x) length(!is.na(x)))
+  allele_c <- aggregate(d1$NRA,by=list(d1$uorder),FUN=mean)
+  d        <- cbind.data.frame(N=prev_N$x,n=prev_n$x,p=prev_p$x,numAllele=allele_c$x)
+  d$p_se   <- sqrt(d$p*(1-d$p)/d$N)
+  d$px     <- d$p / d$numAllele
+  d$px_se  <- d$p_se / d$numAllele
+  return(d)
+}
 
+##income
+d0<-caddat2%>%select("sample","NRA","CC","income")
+pheno1<-1
+pheno2<-0
+d1<-d0[d0$income==pheno1,]
+d2<-d0[d0$income==pheno2,]
+d10<-dcn(d1)
+d10$group<-"income less than 18,000"
+d20<-dcn(d2)
+d20$group<-"income more than 18,000"
+dn<-rbind(d10,d20)
+quant1<-181.685
+quant2<-203.873
+number<-10
+pheno2<-"income less than 18,000"
+pheno1<-"income more than 18,000"
+plot_diff_prev6(dn,"CAD","income more than 18,000","income less than 18,000","CAD_income_uGRS_ori_dif",181.685,203.873,10)
+                        
 plot_diff_prev6<-function(dn,trait,pheno1,pheno2,figure,quant1,quant2,number){
   dn$numAllele2<-dn$numAllele^2
   d1<-dn[dn$group==pheno1,]
