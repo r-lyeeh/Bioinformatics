@@ -112,6 +112,47 @@ for (i in 1:nrow(temp)){
   temp$risk10[i]<-riskf(temp,i)
 }
 #nrow(temp)=402960
+score2<-function(Fabian){
+  score2t<-Fabian%>%select(sample,sex,CC,age,smoking,chol,HDL,sbp)
+  ## sex male =0, female=1 reverse
+  score2t$sex2<-abs(1-score2t$sex)
+  ## smoke
+  score2t$smoke[score2t$smoking<2]<-0
+  score2t$smoke[score2t$smoking>2]<-1
+  score2t$smoke[is.na(score2t$smoking)==TRUE]<-NA
+  ## nonhdl
+  score2t$nonhdl<-(score2t$chol-score2t$HDL)
+  score2t$nonhdl2[score2t$nonhdl>=3.0 & score2t$nonhdl<=3.9]<-1
+  score2t$nonhdl2[score2t$nonhdl>=4.0 & score2t$nonhdl<=4.9]<-2
+  score2t$nonhdl2[score2t$nonhdl>=5.0 & score2t$nonhdl<=5.9]<-3
+  score2t$nonhdl2[score2t$nonhdl>=6.0 & score2t$nonhdl<=6.9]<-4
+  ## agegroup
+  score2t$agegroup[score2t$age>=40 &score2t$age<=44]<-1
+  score2t$agegroup[score2t$age>=45 &score2t$age<=49]<-2
+  score2t$agegroup[score2t$age>=50 &score2t$age<=54]<-3
+  score2t$agegroup[score2t$age>=55 &score2t$age<=59]<-4
+  score2t$agegroup[score2t$age>=60 &score2t$age<=64]<-5
+  score2t$agegroup[score2t$age>=65 &score2t$age<=69]<-6
+  score2t$agegroup[score2t$age>=70 &score2t$age<=74]<-7
+  score2t$agegroup[score2t$age>=75 &score2t$age<=79]<-8
+  score2t$agegroup[score2t$age>=80 &score2t$age<=84]<-9
+  score2t$agegroup[score2t$age>=85 &score2t$age<=89]<-10
+  ##sbpgroup
+  score2t$sbpgroup[score2t$sbp>=100 & score2t$sbp<=119]<-1
+  score2t$sbpgroup[score2t$sbp>=120 & score2t$sbp<=139]<-2
+  score2t$sbpgroup[score2t$sbp>=140 & score2t$sbp<=159]<-3
+  score2t$sbpgroup[score2t$sbp>=160 & score2t$sbp<=179]<-4
+  score2tc<-score2t%>%select(sample,CC,sex2,agegroup,sbpgroup,nonhdl2,smoke)
+  score2tc<-score2tc[complete.cases(score2tc), ]
+  score2res<-score2tc
+  score2res$score2<-NA
+  score2res$risk<-NA
+  score2res$risk<-as.character(score2res$risk)
+  for (i in 1:nrow(score2tc)){
+  score2res[i,8:9]<-subset(score2table, agegroup == score2tc$agegroup[i] & sex == score2tc$sex2[i] & sbpgroup==score2tc$sbpgroup[i] & nonhdlgroup==score2tc$nonhdl2[i] & smoking==score2tc$smoke[i], c(score2,risk))
+  }
+  return(score2res)
+  }
 
 
 
